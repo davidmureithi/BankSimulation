@@ -239,8 +239,8 @@ class AccountController extends Controller
         //Make sure user supplied an account number
         if($request->input('bAccountNumber') == null) {
             return response()->json([
-                'status' => 'Your account number is required',
-            ], 401);
+                    'status' => 'Your account number is required',
+                ], 401);
         }
 
         //Now let's check if the account exists in our database.
