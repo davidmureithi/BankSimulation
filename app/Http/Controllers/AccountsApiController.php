@@ -136,7 +136,6 @@ class AccountsApiController
     }
 
     public function withdraw(Request $request){
-
         $Max_withdrawal_per_day = 50000;
         $Max_withdrawal_per_transaction = 20000;
         $Max_withdrawal_frequency = 3;

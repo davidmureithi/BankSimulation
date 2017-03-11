@@ -8,7 +8,11 @@
                     {{Session::get('hash')}}
                 </h3>
             @endif
-            <div class="row">
+
+            {{--<h3 class="success">--}}
+                {{--{{ $status }}--}}
+            {{--</h3>--}}
+                <div class="row">
                 <div class="col-sm-3 col-sm-offset-1">
                     <div class="login-form">
                         <h2>Create an account</h2>

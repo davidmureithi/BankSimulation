@@ -87,6 +87,32 @@ class AccountController extends Controller
                 ->with('hash', 'All fields are required');
         }
 
+        if($this->maxDepositFrequency($request->input('dAccountNumber')) >= $Max_deposit_frequency) {
+            return response()->json([
+                'status' => 'You have reached maximum deposit limit for today. Kindly check tomorrow.',
+                'day' => Carbon::today()->toDayDateTimeString(),
+                'deposit count' => $this->maxDepositFrequency($request->input('dAccountNumber')),
+                'total deposit' => $this->maxDeposit($request->input('dAccountNumber'))
+            ]);
+        }
+
+        if($this->maxDeposit($request->input('dAccountNumber')) >= $Max_deposit_per_day) {
+            return response()->json([
+                'status' => 'You have reached maximum deposit limit for today. Kindly check tomorrow.',
+                'day' => Carbon::today()->toDayDateTimeString(),
+                'deposit count' => $this->maxDepositFrequency($request->input('dAccountNumber')),
+                'total deposit' => $this->maxDeposit($request->input('dAccountNumber'))
+            ]);
+        }
+
+        if($request->input('dAmount') > $Max_deposit_per_transaction){
+            return response()->json([
+                'status' => 'Maximum deposit per transaction is KSH.' .$Max_deposit_per_transaction,
+                'deposit amount' => $request->input('dAmount')
+            ], 201);
+        }
+
+
         //Now let's check if the account exists in our database.
         $ac = Account::where('Account_Number' , '=' , $request->input('dAccountNumber'))->first();
 
@@ -130,9 +156,9 @@ class AccountController extends Controller
 
     public function withdraw(Request $request){
 
-        $Max_withrawal_per_day = 50000;
-        $Max_withrawal_per_transaction = 20000;
-        $Max_withrawal_frequency = 3;
+        $Max_withdrawal_per_day = 50000;
+        $Max_withdrawal_per_transaction = 20000;
+        $Max_withdrawal_frequency = 3;
 
         //We first define the Form validation rule(s)
         $rules = array(
@@ -149,6 +175,28 @@ class AccountController extends Controller
                 ->with('hash', 'All fields are required');
         }
 
+        if($this->maxWithdrawalFrequency($request->input('wAccountNumber')) >= $Max_withdrawal_frequency) {
+            return response()->json([
+                'status' => 'You have reached maximum withdrawal limit for today. Kindly check tomorrow.',
+                'day' => Carbon::today()->toDayDateTimeString(),
+                'withdrawal count' => $this->maxWithdrawalFrequency($request->input('wAccountNumber')),
+            ]);
+        }
+
+        if($this->maxWithdrawal($request->input('wAccountNumber')) >= $Max_withdrawal_per_day) {
+            return response()->json([
+                'status' => 'You have reached maximum withdrawal limit for today. Kindly check tomorrow.',
+                'day' => Carbon::today()->toDayDateTimeString(),
+                'withdrawal count' => $this->maxDepositFrequency($request->input('wAccountNumber')),
+                'total withdrawal' => $this->maxWithdrawal($request->input('wAccountNumber')),
+            ]);
+        }
+
+        if($request->input('wAmount') > $Max_withdrawal_per_transaction){
+            return response()->json([
+                'status' => 'Maximum withdrawal per transaction is KSH.' .$Max_withdrawal_per_transaction
+            ]);
+        }
         //Now let's check if the account exists in our database.
         $ac = Account::where('Account_Number' , '=' , $request->input('wAccountNumber'))->first();
 
@@ -159,30 +207,6 @@ class AccountController extends Controller
                 ->with('hash', 'Account Number Does Not Exist');
         }
 
-        //Check if account has reached maximum transactions
-//        $freq = Transactions::where('created_at', '>=', Carbon::now()->subDay()->toDateTimeString());
-//
-//        dd($freq);
-
-        $trans = Transactions::where('Transaction_Account' , '=' , $request->input('wAccountNumber') , 'Transaction_Type' , '=' , 'Withdraw' );
-
-        if(8 >= $Max_withrawal_frequency ) {
-            return Redirect::to('/')
-                ->withInput()
-                ->with('hash', 'You have reached maximum withdrawal limit. Kindly check tomorrow.');
-        }
-//
-//        $dtOttawa = Carbon::createFromDate(2000, 1, 1, 'America/Toronto');
-//        $dtVancouver = Carbon::createFromDate(2000, 1, 1, 'America/Vancouver');
-//        echo $dtOttawa->diffInHours($dtVancouver);                             // 3
-//
-//        echo $dtOttawa->diffInHours($dtVancouver, false);                      // 3
-//        echo $dtVancouver->diffInHours($dtOttawa, false);                      // -3
-
-
-        //Select all transactions for an AC for the last 24Hrs
-
-
         $id = $ac->id;
         $balance = $ac->Account_Balance;
         $withdrawn = $request->input('wAmount');
@@ -191,11 +215,7 @@ class AccountController extends Controller
                 ->withInput()
                 ->with('hash', 'Your have insufficient funds. Your balance is KSH.' .$balance);
         }
-        if($withdrawn > $Max_withrawal_per_transaction){
-            return Redirect::to('/')
-                    ->withInput()
-                    ->with('hash', 'Maximum withdrawal per transaction is KSH.' .$Max_withrawal_per_transaction);
-        }
+
         $newBalance = $balance - $withdrawn;
         $account = Account::find($id);
         $account->Account_Balance = $newBalance;
@@ -216,19 +236,11 @@ class AccountController extends Controller
 
     public function balance(Request $request){
 
-        //We first define the Form validation rule(s)
-        $rules = array(
-            'bAccountNumber' => 'required'
-        );
-
-        //Then we run the form validation
-        $validation = Validator::make(Input::all(),$rules);
-
-        //If validation fails, we return to the main page with an error info
-        if($validation->fails()) {
-            return Redirect::to('/')
-                ->withInput()
-                ->with('hash', 'Your account number is required');
+        //Make sure user supplied an account number
+        if($request->input('bAccountNumber') == null) {
+            return response()->json([
+                'status' => 'Your account number is required',
+            ], 401);
         }
 
         //Now let's check if the account exists in our database.
@@ -242,8 +254,48 @@ class AccountController extends Controller
         }
         $balance = $ac->Account_Balance;
 
-        return Redirect::to('/')
-            ->withInput()
-            ->with('hash', 'You balance is KSH.' . $balance . '/= Thank you for banking with My Bank.');
+        return response()->json([
+            'status' => 'You balance is KSH.' . $balance . '/= Thank you for banking with My Bank.',
+        ], 401);
+
+
+//        return Redirect::to('/')
+//            ->withInput()
+//            ->with('hash', 'You balance is KSH.' . $balance . '/= Thank you for banking with My Bank.');
+    }
+
+    public function maxDepositFrequency($request){
+
+        //Select all transactions for an AC for the last 24Hrs
+        $trans_today = Transactions::where('Transaction_Account', '=', $request)
+            ->where('Transaction_Type', '=', 'Deposit')
+            ->where('created_at', '>=', Carbon::today())->count();
+        return $trans_today;
+    }
+
+    public function maxWithdrawalFrequency($request){
+
+        $trans_today = Transactions::where('Transaction_Account', '=', $request)
+            ->where('Transaction_Type', '=', 'Withdraw')
+            ->where('created_at', '>=', Carbon::today())->count();
+        return $trans_today;
+    }
+
+    public function maxDeposit($request){
+
+        $trans_amount_today = Transactions::where('Transaction_Account', '=', $request)
+            ->where('Transaction_Type', '=', 'Deposit')
+            ->where('created_at', '>=', Carbon::today())->sum('Transaction_Amount');
+
+        return $trans_amount_today;
+    }
+
+    public function maxWithdrawal($request){
+
+        $trans_amount_today = Transactions::where('Transaction_Account', '=', $request)
+            ->where('Transaction_Type', '=', 'Withdraw')
+            ->where('created_at', '>=', Carbon::today())->sum('Transaction_Amount');
+
+        return $trans_amount_today;
     }
 }
