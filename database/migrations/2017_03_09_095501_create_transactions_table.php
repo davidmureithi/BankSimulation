@@ -13,7 +13,13 @@ class CreateTransactionsTable extends Migration
      */
     public function up()
     {
-        //
+        Schema::create('transactions', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('Transaction_Account');
+            $table->string('Transaction_Type');
+            $table->string('Transaction_Amount');
+            $table->timestamps();
+        });
     }
 
     /**
@@ -23,6 +29,6 @@ class CreateTransactionsTable extends Migration
      */
     public function down()
     {
-        //
+        Schema::dropIfExists('transactions');
     }
 }

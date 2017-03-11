@@ -14,7 +14,7 @@ class CreateAccountsTable extends Migration
     public function up()
     {
         Schema::create('accounts', function (Blueprint $table) {
-            $table->increments('Account_Id');
+            $table->increments('id');
             $table->string('Account_Name');
             $table->string('Account_Number')->unique();
             $table->string('Account_Identity')->unique();

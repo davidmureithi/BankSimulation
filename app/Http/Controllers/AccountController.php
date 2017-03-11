@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Account;
+use App\Transactions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
+
 
 class AccountController extends Controller
 {
@@ -37,7 +40,7 @@ class AccountController extends Controller
         if($id) {
             return Redirect::to('/')
                 ->withInput()
-                ->with('hash', 'ID No.' . $id . ' is already registered!');
+                ->with('hash', 'ID No.' . $id->Account_Identity . ' is already registered!');
         }
 
         $account = new Account();
@@ -52,10 +55,15 @@ class AccountController extends Controller
         //Save to the DB
         $account->save();
 
+        $mytime = Carbon::now();
+        $T = $mytime->toDateTimeString();
+
+        echo "Carbon now: " . Carbon::now();
+
         //Alert user of successful account creation and give the Account Number
         return Redirect::to('/')
             ->withInput()
-            ->with('hash', 'Account successfully created with account number ' . $account->Account_Number);
+            ->with('hash', ' Account successfully created with account number ' . $account->Account_Number);
     }
 
     public function deposit(Request $request){
@@ -92,6 +100,11 @@ class AccountController extends Controller
         $id = $ac->id;
         $balance = $ac->Account_Balance;
         $deposit = $request->input('dAmount');
+        if($deposit > $Max_deposit_per_transaction){
+            return Redirect::to('/')
+                ->withInput()
+                ->with('hash', 'Maximum deposit per transaction is KSH.' .$Max_deposit_per_transaction);
+        }
 
         $newBalance = $balance + $deposit;
 
@@ -99,6 +112,12 @@ class AccountController extends Controller
 
         $account->Account_Balance = $newBalance;
         $account->save();
+
+        $transaction = new Transactions();
+        $transaction->Transaction_Account = $request->input('dAccountNumber');
+        $transaction->Transaction_Type = 'Deposit';
+        $transaction->Transaction_Amount = $request->input('dAmount');
+        $transaction->save();
 
         return Redirect::to('/')
             ->withInput()
@@ -140,13 +159,54 @@ class AccountController extends Controller
                 ->with('hash', 'Account Number Does Not Exist');
         }
 
+        //Check if account has reached maximum transactions
+//        $freq = Transactions::where('created_at', '>=', Carbon::now()->subDay()->toDateTimeString());
+//
+//        dd($freq);
+
+        $trans = Transactions::where('Transaction_Account' , '=' , $request->input('wAccountNumber') , 'Transaction_Type' , '=' , 'Withdraw' );
+
+        if(8 >= $Max_withrawal_frequency ) {
+            return Redirect::to('/')
+                ->withInput()
+                ->with('hash', 'You have reached maximum withdrawal limit. Kindly check tomorrow.');
+        }
+//
+//        $dtOttawa = Carbon::createFromDate(2000, 1, 1, 'America/Toronto');
+//        $dtVancouver = Carbon::createFromDate(2000, 1, 1, 'America/Vancouver');
+//        echo $dtOttawa->diffInHours($dtVancouver);                             // 3
+//
+//        echo $dtOttawa->diffInHours($dtVancouver, false);                      // 3
+//        echo $dtVancouver->diffInHours($dtOttawa, false);                      // -3
+
+
+        //Select all transactions for an AC for the last 24Hrs
+
+
         $id = $ac->id;
         $balance = $ac->Account_Balance;
         $withdrawn = $request->input('wAmount');
+        if($withdrawn > $balance){
+            return Redirect::to('/')
+                ->withInput()
+                ->with('hash', 'Your have insufficient funds. Your balance is KSH.' .$balance);
+        }
+        if($withdrawn > $Max_withrawal_per_transaction){
+            return Redirect::to('/')
+                    ->withInput()
+                    ->with('hash', 'Maximum withdrawal per transaction is KSH.' .$Max_withrawal_per_transaction);
+        }
         $newBalance = $balance - $withdrawn;
         $account = Account::find($id);
         $account->Account_Balance = $newBalance;
         $account->save();
+
+        $transaction = new Transactions();
+        $transaction->Transaction_Account = $request->input('wAccountNumber');
+        $transaction->Transaction_Type = 'Withdraw';
+        $transaction->Transaction_Amount = $request->input('wAmount');
+        $transaction->save();
+
         return Redirect::to('/')
                 ->withInput()
                 ->with('hash','You have withdrawn KSH.' .
@@ -180,9 +240,7 @@ class AccountController extends Controller
                 ->withInput()
                 ->with('hash', 'Account Number Does Not Exist');
         }
-        //$balance = select Account_Balance from `accounts` where `accounts`.`Account_Number` = $request->input(\'dAccountNumber\'  limit 1';
-        //$balance = $account::find('Account_Balance');
-        $balance = '700';
+        $balance = $ac->Account_Balance;
 
         return Redirect::to('/')
             ->withInput()
